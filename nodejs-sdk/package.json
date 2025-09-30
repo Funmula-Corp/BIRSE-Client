@@ -1,0 +1,44 @@
+{
+  "name": "@birse/visual-search-sdk",
+  "version": "1.0.0",
+  "description": "BIRSE Visual Search SDK for Node.js - Image insight and visual search API client",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "test": "jest",
+    "lint": "eslint src/**/*.ts",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "birse",
+    "visual-search",
+    "image-insight",
+    "shopify",
+    "api-client"
+  ],
+  "author": "BIRSE",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/jest": "^29.5.0",
+    "@types/node": "^20.0.0",
+    "@typescript-eslint/eslint-plugin": "^6.0.0",
+    "@typescript-eslint/parser": "^6.0.0",
+    "eslint": "^8.50.0",
+    "jest": "^29.5.0",
+    "ts-jest": "^29.1.0",
+    "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "axios": "^1.6.0",
+    "form-data": "^4.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Funmula-Corp/BIRSE-Client.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Funmula-Corp/BIRSE-Client/issues"
+  },
+  "homepage": "https://birse-image-insight.biggo.com/"
+}
