@@ -14,10 +14,6 @@ BIRSE Visual Search helps online retailers enhance their shopping experience wit
 ## Features
 
 - 🔍 **Image Search** - Search for similar products using images
-- 🌐 **URL Search** - Search by providing image URLs  
-- 📤 **Image Upload** - Upload images to your visual search database
-- 🗑️ **Image Management** - Delete images from your database
-- 📊 **Metadata Support** - Attach and filter by custom metadata
 
 ## Installation
 
@@ -41,16 +37,18 @@ pip install -e .
 ### Node.js
 
 ```typescript
-import BirseClient from '@birse/visual-search-sdk';
-
 const client = new BirseClient({
-  apiKey: 'YOUR_API_KEY'
+  shopId: 'YOUR_SHOP_ID',
+  shopPermanentDomain: 'your-shop-name.myshopify.com',
 });
 
-// Search by image file
-const results = await client.searchByImage('product.jpg', {
-  maxResults: 10,
-  minScore: 0.8
+// Upload image file object
+const uploadResult=await client.uploadImage(imageFile);
+// Search by image id
+const results = await client.searchImage({
+  imageId: uploadResult.image_id,
+  country: 'US',
+  lang:'EN'
 });
 ```
 
@@ -70,6 +68,8 @@ results = client.search_by_image('product.jpg',
 ## API Documentation
 
 For detailed API documentation, visit:
+
+- [API Documentation](API.md) this file contains detailed information about each endpoint, parameters, and response formats.
 - [BIRSE Image Insight Platform](https://birse-image-insight.biggo.com/)
 - [Shopify App Store](https://apps.shopify.com/birse-visual-search?locale=zh-TW)
 
@@ -79,8 +79,8 @@ For detailed API documentation, visit:
 
 ```bash
 cd nodejs-sdk
+npm install
 npm run build    # Build TypeScript
-npm run test     # Run tests
 npm run lint     # Run linter
 ```
 
