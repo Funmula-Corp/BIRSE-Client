@@ -28,8 +28,6 @@ setup(
     python_requires=">=3.7",
     install_requires=[
         "requests>=2.28.0",
-        "pillow>=9.0.0",
-        "typing-extensions>=4.0.0",
     ],
     extras_require={
         "dev": [

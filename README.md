@@ -14,6 +14,9 @@ BIRSE Visual Search helps online retailers enhance their shopping experience wit
 ## Features
 
 - 🔍 **Image Search** - Search for similar products using images
+- 📤 **Image Upload** - Upload product images for visual search
+- 🔄 **Similar Products** - Find similar products based on existing products
+- 🛍️ **Shopify Integration** - Built specifically for Shopify stores
 
 ## Installation
 
@@ -28,7 +31,6 @@ npm install
 
 ```bash
 cd python-sdk
-pip install -r requirements.txt
 pip install -e .
 ```
 
@@ -57,21 +59,38 @@ const results = await client.searchImage({
 ```python
 from birse import BirseClient
 
-client = BirseClient(api_key='YOUR_API_KEY')
+client = BirseClient(
+    shop_id='YOUR_SHOP_ID',
+    shop_permanent_domain='your-shop-name.myshopify.com'
+)
 
-# Search by image file
-results = client.search_by_image('product.jpg', 
-                                  max_results=10,
-                                  min_score=0.8)
+# Upload image file object
+upload_result = client.upload_image(image_file)
+
+# Search by image id
+results = client.search_image(
+    image_id=upload_result['image_id'],
+    country='US',
+    lang='EN'
+)
+
+# Find similar products
+similar = client.similar_products(
+    product_id='gid://shopify/Product/123456',
+    country='US',
+    lang='EN'
+)
 ```
 
 ## API Documentation
 
-For detailed API documentation, visit:
+For detailed API documentation, see [API.md](./docs/API.md)
 
-- [API Documentation](API.md) this file contains detailed information about each endpoint, parameters, and response formats.
-- [BIRSE Image Insight Platform](https://birse-image-insight.biggo.com/)
-- [Shopify App Store](https://apps.shopify.com/birse-visual-search?locale=zh-TW)
+## Links
+
+- 🌐 [BIRSE Image Insight Platform](https://birse-image-insight.biggo.com/)
+- 💰 [Pricing Plans](https://birse-image-insight.biggo.com/plans)
+- 🛍️ [Shopify App Store](https://apps.shopify.com/birse-visual-search?locale=zh-TW)
 
 ## Development
 
@@ -79,7 +98,6 @@ For detailed API documentation, visit:
 
 ```bash
 cd nodejs-sdk
-npm install
 npm run build    # Build TypeScript
 npm run lint     # Run linter
 ```

@@ -1,229 +1,180 @@
-import io
 import json
-from pathlib import Path
-from typing import Optional, Dict, Any, Union, BinaryIO
+from typing import Optional, Dict, Any, List, Tuple
 
 import requests
-from PIL import Image
 
 from .exceptions import BirseAPIError, BirseConnectionError
-from .models import SearchResponse, SearchResult
+from .models import SearchResponse
 
 
 class BirseClient:
-    """BIRSE Visual Search API Client"""
+    """BIRSE Visual Search API Client for Shopify"""
 
     def __init__(
         self,
-        api_key: str,
-        base_url: str = "https://birse-image-insight.biggo.com/api",
+        shop_id: str,
+        shop_permanent_domain: str,
         timeout: int = 30,
     ):
         """
         Initialize BIRSE client.
 
         Args:
-            api_key: Your BIRSE API key
-            base_url: Base URL for the API (optional)
+            shop_id: Your Shopify shop ID
+            shop_permanent_domain: Your shop's permanent domain (e.g., 'your-shop.myshopify.com')
             timeout: Request timeout in seconds (default: 30)
         """
-        self.api_key = api_key
-        self.base_url = base_url.rstrip("/")
+        self.shop_id = shop_id
+        self.shop_permanent_domain = shop_permanent_domain
         self.timeout = timeout
         self.session = requests.Session()
-        self.session.headers.update({
-            "X-API-Key": api_key,
-        })
 
-    def search_by_image(
-        self,
-        image: Union[str, Path, bytes, BinaryIO],
-        max_results: Optional[int] = None,
-        min_score: Optional[float] = None,
-        metadata: Optional[Dict[str, Any]] = None,
-    ) -> SearchResponse:
+    def upload_image(self, image_file: Any) -> Dict[str, Any]:
         """
-        Search for similar images using an image file.
+        Upload an image file to BIRSE.
 
         Args:
-            image: Image file path, bytes, or file-like object
-            max_results: Maximum number of results to return
-            min_score: Minimum similarity score (0-1)
-            metadata: Additional metadata for filtering
+            image_file: Image file object (from file input)
 
         Returns:
-            SearchResponse object with search results
+            Dict with result status and image_id
         """
-        files = {}
-        data = {}
-
-        if isinstance(image, (str, Path)):
-            image_path = Path(image)
-            if not image_path.exists():
-                raise FileNotFoundError(f"Image file not found: {image_path}")
-            files["image"] = ("image.jpg", open(image_path, "rb"), "image/jpeg")
-        elif isinstance(image, bytes):
-            files["image"] = ("image.jpg", io.BytesIO(image), "image/jpeg")
-        else:
-            files["image"] = ("image.jpg", image, "image/jpeg")
-
-        if max_results is not None:
-            data["maxResults"] = str(max_results)
-        
-        if min_score is not None:
-            data["minScore"] = str(min_score)
-        
-        if metadata:
-            data["metadata"] = json.dumps(metadata)
+        files = {'image': image_file}
+        data = {'shop': self.shop_id}
 
         try:
             response = self.session.post(
-                f"{self.base_url}/search",
+                'https://api.biggo.com/api/v1/shopify/upload_image',
                 files=files,
                 data=data,
                 timeout=self.timeout,
             )
             response.raise_for_status()
-            return SearchResponse.from_dict(response.json())
+            result = response.json()
+
+            if not result.get('result'):
+                raise BirseAPIError('Upload failed')
+            if not result.get('image_id'):
+                raise BirseAPIError('No image id returned')
+
+            return result
         except requests.exceptions.RequestException as e:
             if isinstance(e, requests.exceptions.HTTPError):
                 raise BirseAPIError(f"API error: {e.response.text}")
             else:
                 raise BirseConnectionError(f"Connection error: {str(e)}")
-        finally:
-            if isinstance(files.get("image"), tuple) and hasattr(files["image"][1], "close"):
-                files["image"][1].close()
 
-    def search_by_url(
+    def search_image(
         self,
-        image_url: str,
-        max_results: Optional[int] = None,
-        min_score: Optional[float] = None,
-        metadata: Optional[Dict[str, Any]] = None,
+        image_id: str,
+        xywh: Optional[Tuple[int, int, int, int]] = None,
+        metafields: Optional[List[Dict[str, str]]] = None,
+        country: Optional[str] = None,
+        lang: Optional[str] = None,
     ) -> SearchResponse:
         """
-        Search for similar images using an image URL.
+        Search for similar products using an uploaded image ID.
 
         Args:
-            image_url: URL of the image to search
-            max_results: Maximum number of results to return
-            min_score: Minimum similarity score (0-1)
-            metadata: Additional metadata for filtering
+            image_id: The image ID from upload_image
+            xywh: Optional crop coordinates [x, y, width, height]
+            metafields: Optional metafields filters [{'namespace': '...', 'key': '...'}]
+            country: Optional country code (e.g., 'US')
+            lang: Optional language code (e.g., 'EN')
 
         Returns:
-            SearchResponse object with search results
+            SearchResponse with product results
         """
-        payload = {"url": image_url}
-
-        if max_results is not None:
-            payload["maxResults"] = max_results
-        
-        if min_score is not None:
-            payload["minScore"] = min_score
-        
-        if metadata:
-            payload["metadata"] = metadata
+        payload = {
+            'image_id': image_id,
+            'xywh': list(xywh) if xywh else None,
+            'is_orientation': False,
+            'shop': self.shop_id
+        }
 
         try:
-            response = self.session.post(
-                f"{self.base_url}/search-by-url",
+            similar_ids_res = self.session.post(
+                'https://api.biggo.com/api/v1/shopify/similar_image',
                 json=payload,
                 timeout=self.timeout,
             )
-            response.raise_for_status()
-            return SearchResponse.from_dict(response.json())
+            similar_ids_res.raise_for_status()
+            similar_ids = similar_ids_res.json()
+
+            if not isinstance(similar_ids, list) or len(similar_ids) == 0:
+                return SearchResponse(result=True, products=[])
+
+            products_payload = {
+                'shop': self.shop_permanent_domain,
+                'ids': similar_ids,
+                'metafields': metafields,
+                'country': country,
+                'lang': lang
+            }
+
+            products_res = self.session.post(
+                'https://platformplugin.biggo.com/api/get_products',
+                json=products_payload,
+                timeout=self.timeout,
+            )
+            products_res.raise_for_status()
+            data = products_res.json()
+
+            return SearchResponse.from_dict(data)
+
         except requests.exceptions.RequestException as e:
             if isinstance(e, requests.exceptions.HTTPError):
                 raise BirseAPIError(f"API error: {e.response.text}")
             else:
                 raise BirseConnectionError(f"Connection error: {str(e)}")
 
-    def upload_image(
+    def similar_products(
         self,
-        image: Union[str, Path, bytes, BinaryIO],
-        metadata: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
+        product_id: str,
+        image_url: Optional[str] = None,
+        country: Optional[str] = None,
+        lang: Optional[str] = None,
+        metafields: Optional[List[Dict[str, str]]] = None,
+    ) -> SearchResponse:
         """
-        Upload an image to the BIRSE database.
+        Find similar products to a given product.
 
         Args:
-            image: Image file path, bytes, or file-like object
-            metadata: Additional metadata to store with the image
+            product_id: The product ID to find similar products for
+            image_url: Optional specific image URL from the product
+            country: Optional country code
+            lang: Optional language code
+            metafields: Optional metafields filters
 
         Returns:
-            Dict with upload status and image ID
+            SearchResponse with similar products
         """
-        files = {}
-        data = {}
+        params = {
+            'shop': self.shop_permanent_domain,
+            'shop_id': self.shop_id,
+            'product_id': product_id,
+        }
 
-        if isinstance(image, (str, Path)):
-            image_path = Path(image)
-            if not image_path.exists():
-                raise FileNotFoundError(f"Image file not found: {image_path}")
-            files["image"] = ("image.jpg", open(image_path, "rb"), "image/jpeg")
-        elif isinstance(image, bytes):
-            files["image"] = ("image.jpg", io.BytesIO(image), "image/jpeg")
-        else:
-            files["image"] = ("image.jpg", image, "image/jpeg")
+        if image_url:
+            params['image_url'] = image_url
+        if country:
+            params['country'] = country
+        if lang:
+            params['lang'] = lang
+        if metafields:
+            params['metafields'] = json.dumps(metafields)
 
-        if metadata:
-            data["metadata"] = json.dumps(metadata)
-
-        try:
-            response = self.session.post(
-                f"{self.base_url}/upload",
-                files=files,
-                data=data,
-                timeout=self.timeout,
-            )
-            response.raise_for_status()
-            return response.json()
-        except requests.exceptions.RequestException as e:
-            if isinstance(e, requests.exceptions.HTTPError):
-                raise BirseAPIError(f"API error: {e.response.text}")
-            else:
-                raise BirseConnectionError(f"Connection error: {str(e)}")
-        finally:
-            if isinstance(files.get("image"), tuple) and hasattr(files["image"][1], "close"):
-                files["image"][1].close()
-
-    def delete_image(self, image_id: str) -> Dict[str, Any]:
-        """
-        Delete an image from the BIRSE database.
-
-        Args:
-            image_id: ID of the image to delete
-
-        Returns:
-            Dict with deletion status
-        """
-        try:
-            response = self.session.delete(
-                f"{self.base_url}/images/{image_id}",
-                timeout=self.timeout,
-            )
-            response.raise_for_status()
-            return response.json()
-        except requests.exceptions.RequestException as e:
-            if isinstance(e, requests.exceptions.HTTPError):
-                raise BirseAPIError(f"API error: {e.response.text}")
-            else:
-                raise BirseConnectionError(f"Connection error: {str(e)}")
-
-    def get_status(self) -> Dict[str, Any]:
-        """
-        Get API status and version information.
-
-        Returns:
-            Dict with status information
-        """
         try:
             response = self.session.get(
-                f"{self.base_url}/status",
+                'https://platformplugin.biggo.com/api/similar_products',
+                params=params,
                 timeout=self.timeout,
             )
             response.raise_for_status()
-            return response.json()
+            data = response.json()
+
+            return SearchResponse.from_dict(data)
+
         except requests.exceptions.RequestException as e:
             if isinstance(e, requests.exceptions.HTTPError):
                 raise BirseAPIError(f"API error: {e.response.text}")
