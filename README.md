@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="./assets/birse-logo.svg" alt="BIRSE Logo" width="120">
+</p>
+
 <h1 align="center">BIRSE Visual Search Client SDKs</h1>
 
 <p align="center">
