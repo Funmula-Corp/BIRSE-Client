@@ -1,7 +1,3 @@
-<p align="center">
-  <img src="https://birse-image-insight.biggo.com/favicon.ico" alt="BIRSE Logo" width="80" height="80">
-</p>
-
 <h1 align="center">BIRSE Visual Search Client SDKs</h1>
 
 <p align="center">
